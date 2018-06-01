@@ -3,6 +3,7 @@
 #include <QMenuBar>
 #include <QTest>
 #include <QSignalSpy>
+#include <QMessageBox>
 #include <QDebug>
 #include <QTimer>
 
@@ -14,17 +15,22 @@ namespace
 template<class T>
 bool MainWindowTest::findUnparentedWidget(T *foundWidget)
 {
-    const QWidgetList unparentedWidgets(QApplication::topLevelWidgets());
-    foreach (const QWidget* widget, unparentedWidgets)
+    auto unparentedWidgets(QApplication::topLevelWidgets());
+    foreach (auto widget, unparentedWidgets)
     {
-        foundWidget = const_cast<T*>(dynamic_cast<const T*>(widget));
-        if(foundWidget)
+        foundWidget = dynamic_cast<T*>(widget);
+        if(Q_NULLPTR != foundWidget)
         {
-            qInfo(QString("Found widget %1").arg(foundWidget->objectName()).toLatin1().constData());
+            qInfo(QString("Found widget %1 at %2 (%3)")
+                  .arg(foundWidget->objectName())
+                  .arg(QString::number(reinterpret_cast<uintptr_t>(foundWidget), 16))
+                  .arg(QString::number(reinterpret_cast<uintptr_t>(widget), 16))
+                  .toUtf8().constData());
             break;
         }
     }
-    return (foundWidget != NULL);
+
+    return (Q_NULLPTR != foundWidget);
 }
 
 // will be called before each test function is executed.
@@ -44,26 +50,38 @@ void MainWindowTest::exitGameWhenExitClickedInMenu()
 
 void MainWindowTest::showAboutMessageWhenAboutClicked()
 {
-    QAction* actionAbout(MainWin->findChild<QAction*>("actionAbout"));
+    auto actionAbout(MainWin->findChild<QAction*>("actionAbout"));
     QMessageBox* aboutBox(Q_NULLPTR);
+    qInfo(QString("aboutBox ptrAddress=%1 objAddress=%2")
+          .arg(QString::number(reinterpret_cast<uintptr_t>(&aboutBox), 16))
+          .arg(QString::number(reinterpret_cast<uintptr_t>(aboutBox), 16))
+          .toUtf8().constData());
 
-    auto func = [&, aboutBox] () mutable
+    auto earlyTimerMessageBoxBypass = [this, aboutBox] ()
     {
-        QTRY_VERIFY_WITH_TIMEOUT(findUnparentedWidget(aboutBox), TIMEOUT_MS);
-        QTEST_ASSERT(Q_NULLPTR != aboutBox);
+        QVERIFY(findUnparentedWidget(aboutBox));
 
-        if(!QTest::currentTestFailed())
-        {
-            QVERIFY(aboutBox->objectName() == "AboutWindow");
-            QVERIFY(aboutBox->hasFocus());
-            QVERIFY(aboutBox->text() == "Brandon's Adventure\ncopyright Brandon Heins");
+        qInfo(QString("aboutBox ptrAddress=%1 objAddress=%2")
+              .arg(QString::number(reinterpret_cast<uintptr_t>(&aboutBox), 16))
+              .arg(QString::number(reinterpret_cast<uintptr_t>(aboutBox), 16))
+              .toUtf8().constData());
 
-            aboutBox->close();
-        }
+        QVERIFY(Q_NULLPTR != aboutBox);
     };
-    QTimer::singleShot(0, func);
 
+    QTimer::singleShot(200, earlyTimerMessageBoxBypass);
     actionAbout->trigger();
+
+    QTEST_ASSERT(Q_NULLPTR != aboutBox);
+    if(!QTest::currentTestFailed())
+    {
+        QVERIFY(aboutBox->objectName() == "AboutWindow");
+        QVERIFY(aboutBox->hasFocus());
+        QVERIFY(aboutBox->text() == "Brandon's Adventure\ncopyright Brandon Heins");
+
+        aboutBox->close();
+    }
+    qInfo(QString("AboutBox=%1").arg(reinterpret_cast<uintptr_t>(aboutBox)).toUtf8().constData());
 
     QTRY_VERIFY_WITH_TIMEOUT(MainWin->hasFocus(), TIMEOUT_MS);
     MainWin->findChild<QAction*>("actionExit")->trigger();

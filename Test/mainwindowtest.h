@@ -19,6 +19,6 @@ private slots:
 
 private:
     template<class T>
-    bool findUnparentedWidget(T *widget);
+    bool findUnparentedWidget(T *foundWidget);
     QScopedPointer<AdventureMain::MainWindow> MainWin;
 };

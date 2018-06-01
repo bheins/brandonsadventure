@@ -34,5 +34,5 @@ void MainWindow::about()
 
 void MainWindow::exit()
 {
-    this->close();
+    close();
 }

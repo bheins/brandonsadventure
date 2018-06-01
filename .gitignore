@@ -1,0 +1,7 @@
+**Makefile*
+.qmake.stash
+**.exe
+**/build/*
+**/debug/*
+*.pro.user
+**/target_wrapper.*
